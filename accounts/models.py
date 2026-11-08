@@ -11,6 +11,12 @@ class User(AbstractUser):
         blank=True,
     )
 
+    failed_login_attempts = models.PositiveIntegerField(default=0)
+
+    is_locked = models.BooleanField(default=False)
+
+    must_change_password = models.BooleanField(default=True)
+
     def __str__(self):
         return self.username
 

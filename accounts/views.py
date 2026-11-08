@@ -1,17 +1,26 @@
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from django.contrib.auth import authenticate
+
+from django.contrib.auth import get_user_model, authenticate
+
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from .serializers import LoginSerializer, UserProfileSerializer
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from .permissions import (
+    PasswordChangeRequiredPermission,
+    PasswordChangeAccessPermission,
+)
 
 
 class CurrentUserView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        PasswordChangeRequiredPermission,
+    ]
 
     def get(self, request):
         serializer = UserProfileSerializer(request.user)
@@ -29,38 +38,115 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data["username"]
+        username = serializer.validated_data.get("username")
+        mobile_number = serializer.validated_data.get("mobile_number")
         password = serializer.validated_data["password"]
 
-        user = authenticate(
-            request,
-            username=username,
-            password=password,
-        )
+        User = get_user_model()
 
-        if user is None:
+        # Find account using username or mobile number.
+        if mobile_number:
+            account = User.objects.filter(
+                mobile_number=mobile_number
+            ).first()
+        else:
+            account = User.objects.filter(
+                username=username
+            ).first()
+
+        if account is None:
             return Response(
                 {"detail": "Invalid username or password."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Check whether the account is locked.
+        if account.is_locked:
+            return Response(
+                {
+                    "detail": "Account is locked after 5 failed login attempts."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Authenticate the user.
+        user = authenticate(
+            request,
+            username=account.username,
+            password=password,
+        )
+
+        # Handle incorrect password.
+        if user is None:
+            account.failed_login_attempts += 1
+
+            if account.failed_login_attempts >= 5:
+                account.is_locked = True
+
+            account.save(
+                update_fields=[
+                    "failed_login_attempts",
+                    "is_locked",
+                ]
+            )
+
+            if account.is_locked:
+                return Response(
+                    {
+                        "detail": "Account locked after 5 failed login attempts."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            return Response(
+                {
+                    "detail": "Invalid username or password.",
+                    "remaining_attempts": 5 - account.failed_login_attempts,
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Check account status.
         if not user.is_active:
             return Response(
                 {"detail": "This account is inactive."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Reset failed attempts after successful authentication.
+        if user.failed_login_attempts > 0:
+            user.failed_login_attempts = 0
+            user.save(update_fields=["failed_login_attempts"])
+
+        # Require password change on first login.
+        if user.must_change_password:
+            refresh = RefreshToken.for_user(user)
+
+            access = refresh.access_token
+            access["password_change_only"] = True
+
+            return Response(
+                {
+                    "detail": "Password change required.",
+                    "must_change_password": True,
+                    "access": str(access),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Generate normal JWT tokens.
         refresh = RefreshToken.for_user(user)
 
         return Response(
             {
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
+                "must_change_password": False,
             },
             status=status.HTTP_200_OK,
         )
 
-        
+
 class RefreshTokenView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -78,9 +164,12 @@ class RefreshTokenView(APIView):
 
         except Exception:
             return Response(
-                {"detail": "Invalid, expired, or blacklisted refresh token."},
+                {
+                    "detail": "Invalid, expired, or blacklisted refresh token."
+                },
                 status=status.HTTP_401_UNAUTHORIZED
             )
+
 
 class LogoutView(APIView):
     permission_classes = [AllowAny]
@@ -110,8 +199,12 @@ class LogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+
 class PasswordChangeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [
+        IsAuthenticated,
+        PasswordChangeAccessPermission,
+    ]
 
     def post(self, request):
         current_password = request.data.get("current_password")
@@ -119,7 +212,9 @@ class PasswordChangeView(APIView):
 
         if not current_password or not new_password:
             return Response(
-                {"detail": "Current password and new password are required."},
+                {
+                    "detail": "Current password and new password are required."
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -132,7 +227,14 @@ class PasswordChangeView(APIView):
             )
 
         user.set_password(new_password)
-        user.save()
+        user.must_change_password = False
+
+        user.save(
+            update_fields=[
+                "password",
+                "must_change_password",
+            ]
+        )
 
         return Response(
             {"detail": "Password changed successfully."},
