@@ -6,10 +6,14 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import LoginSerializer, UserProfileSerializer
+from .serializers import (
+    LoginSerializer,
+    UserProfileSerializer,
+    SecureTokenRefreshSerializer,
+)
+
 from .permissions import (
     PasswordChangeRequiredPermission,
     PasswordChangeAccessPermission,
@@ -152,7 +156,7 @@ class RefreshTokenView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        serializer = TokenRefreshSerializer(data=request.data)
+        serializer = SecureTokenRefreshSerializer(data=request.data)
 
         try:
             serializer.is_valid(raise_exception=True)
