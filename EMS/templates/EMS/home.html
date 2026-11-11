@@ -1,0 +1,276 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Employee Service Book | CEMS</title>
+    <link rel="stylesheet" href="{% static 'service_book.css' %}">
+    <script defer src="{% static 'service_book.js' %}"></script>
+</head>
+<body data-staff="{% if request.user.is_authenticated and request.user.is_staff %}true{% else %}false{% endif %}">
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="CEMS Service Book home">
+            <span class="brand-mark">C</span>
+            <span><strong>CEMS</strong><small>Employee services</small></span>
+        </a>
+        <div class="topbar-right">
+            <span class="module-tag">MODULE 03 <span aria-hidden="true">/</span> SERVICE BOOK</span>
+            {% if request.user.is_authenticated and request.user.is_staff %}
+                <span class="user-chip"><span class="user-dot"></span>{{ request.user.get_username }}</span>
+                <form action="/admin/logout/" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button class="top-link" type="submit">Sign out</button>
+                </form>
+            {% else %}
+                <a class="button button-primary button-small" href="/admin/login/?next=/">Staff sign in</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="workspace">
+        <aside class="sidebar" aria-label="Service book sections">
+            <p class="side-label">WORKSPACE</p>
+            <a class="side-link active" href="#overview"><span>▦</span> Overview</a>
+            <a class="side-link" href="#employee-details"><span>◉</span> Employee details</a>
+            <a class="side-link" href="#service-history"><span>↗</span> Service history</a>
+            <a class="side-link" href="#records"><span>▤</span> Records & documents</a>
+            <a class="side-link" href="#approvals"><span>✓</span> Drafts & approvals</a>
+            <div class="sidebar-note">
+                <span class="note-icon">i</span>
+                <p>Changes are recorded in the service-book audit history. Approved events are retained as immutable records.</p>
+            </div>
+        </aside>
+
+        <div class="content">
+            <section class="page-heading" id="overview">
+                <div>
+                    <p class="eyebrow">EMPLOYEE RECORDS</p>
+                    <h1>Service book</h1>
+                    <p class="subtitle">Manage an employee’s service history, records, and approvals in one place.</p>
+                </div>
+                <div class="heading-actions">
+                    <label class="sr-only" for="employee-picker">Select an employee</label>
+                    <select id="employee-picker" class="employee-picker" aria-label="Select employee">
+                        <option value="">Select an employee</option>
+                    </select>
+                    <button class="button button-primary" type="button" data-open-profile>＋ Add employee</button>
+                </div>
+            </section>
+
+            <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+            {% if not request.user.is_authenticated or not request.user.is_staff %}
+                <section class="auth-banner">
+                    <div class="auth-icon">⌑</div>
+                    <div>
+                        <h2>Staff sign-in required</h2>
+                        <p>Sign in with a Django staff account to access employee service-book records and make changes.</p>
+                    </div>
+                    <a class="button button-primary" href="/admin/login/?next=/">Sign in</a>
+                </section>
+            {% endif %}
+
+            <section class="employee-banner panel" id="employee-summary">
+                <div class="employee-avatar" id="employee-avatar">—</div>
+                <div class="employee-identity">
+                    <p class="muted-label">SELECTED EMPLOYEE</p>
+                    <h2 id="employee-name">No employee selected</h2>
+                    <p id="employee-meta">Choose an employee record or add a new one to get started.</p>
+                </div>
+                <div class="employee-status">
+                    <span class="status-pill status-neutral" id="employment-status">No service data</span>
+                    <span class="muted-label" id="record-date"></span>
+                </div>
+                <button class="icon-button" id="edit-profile" type="button" title="Edit employee details" aria-label="Edit employee details" disabled>✎</button>
+            </section>
+
+            <section class="stats-grid" aria-label="Service book summary">
+                <article class="stat-card">
+                    <span class="stat-icon icon-blue">↗</span>
+                    <div><p>Service events</p><strong id="stat-events">—</strong><small>Recorded in history</small></div>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-icon icon-amber">◷</span>
+                    <div><p>Awaiting approval</p><strong id="stat-pending">—</strong><small>Draft or submitted</small></div>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-icon icon-green">▤</span>
+                    <div><p>Scanned documents</p><strong id="stat-documents">—</strong><small>Attached to this record</small></div>
+                </article>
+                <article class="stat-card">
+                    <span class="stat-icon icon-purple">★</span>
+                    <div><p>ACR records</p><strong id="stat-acr">—</strong><small>Confidential assessments</small></div>
+                </article>
+            </section>
+
+            <section class="two-column" id="employee-details">
+                <article class="panel detail-panel">
+                    <div class="section-title">
+                        <div><p class="eyebrow">CURRENT SERVICE</p><h2>Designation & pay</h2></div>
+                        <span class="soft-tag" id="as-of-label">As of today</span>
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item"><span>Designation</span><strong id="current-designation">—</strong></div>
+                        <div class="detail-item"><span>Designation level</span><strong id="current-designation-level">—</strong></div>
+                        <div class="detail-item"><span>Role description</span><strong id="current-designation-description">—</strong></div>
+                        <div class="detail-item"><span>Pay scale</span><strong id="current-scale">—</strong></div>
+                        <div class="detail-item"><span>Pay range</span><strong id="current-pay-range">—</strong></div>
+                        <div class="detail-item"><span>Current pay</span><strong id="current-pay">—</strong></div>
+                        <div class="detail-item"><span>Scale revision</span><strong id="current-scale-revision">—</strong></div>
+                        <div class="detail-item"><span>Increment steps</span><strong id="current-scale-steps">—</strong></div>
+                        <div class="detail-item"><span>Society CEN</span><strong id="current-society">—</strong></div>
+                        <div class="detail-item"><span>Probation</span><strong id="current-probation">—</strong></div>
+                        <div class="detail-item"><span>Employment status</span><strong id="current-status">—</strong></div>
+                    </div>
+                </article>
+                <article class="panel detail-panel">
+                    <div class="section-title">
+                        <div><p class="eyebrow">HISTORICAL LOOKUP</p><h2>Service state by date</h2></div>
+                    </div>
+                    <form id="history-form" class="inline-form">
+                        <label for="history-date">View approved service state as of</label>
+                        <div class="inline-controls">
+                            <input id="history-date" type="date" required>
+                            <button class="button button-secondary" type="submit">View history</button>
+                        </div>
+                    </form>
+                    <div class="history-result" id="historical-state" aria-live="polite">Select an employee to view their state on a past date.</div>
+                </article>
+            </section>
+
+            <section class="panel section-panel" id="service-history">
+                <div class="section-title section-title-wrap">
+                    <div><p class="eyebrow">CAREER RECORD</p><h2>Service history</h2><p class="section-caption">Appointments, promotions, transfers, pay changes, and other approved events.</p></div>
+                    <button class="button button-primary" type="button" data-scroll="event-form">＋ Record service event</button>
+                </div>
+                <div id="event-timeline" class="timeline empty-state">Select an employee to load their service history.</div>
+            </section>
+
+            <section class="panel section-panel" id="approvals">
+                <div class="section-title">
+                    <div><p class="eyebrow">WORKFLOW</p><h2>Drafts & approvals</h2><p class="section-caption">Submit drafts for approval. Lock approved events to prevent further workflow changes.</p></div>
+                </div>
+                <div id="approval-list" class="approval-list empty-state">Select an employee to review drafts and approvals.</div>
+            </section>
+
+            <section class="two-column records-grid" id="records">
+                <article class="panel section-panel">
+                    <div class="section-title"><div><p class="eyebrow">APPOINTMENT</p><h2>Recruitment & joining</h2></div></div>
+                    <form id="recruitment-form" class="form-grid">
+                        <label>Recruitment date<input name="recruitment_date" type="date" required></label>
+                        <label>Recruitment mode<input name="recruitment_mode" maxlength="40" placeholder="e.g. Direct recruitment" required></label>
+                        <label class="span-2">Reference number<input name="reference_number" maxlength="100"></label>
+                        <label class="span-2">Details<textarea name="details" rows="2" placeholder="Joining or appointment notes"></textarea></label>
+                        <button class="button button-secondary span-2" type="submit">Save recruitment record</button>
+                    </form>
+                    <div id="recruitment-list" class="record-list empty-state">No recruitment records loaded.</div>
+                </article>
+                <article class="panel section-panel">
+                    <div class="section-title"><div><p class="eyebrow">PROBATION</p><h2>Probation details</h2></div></div>
+                    <form id="probation-form" class="form-grid">
+                        <label>Start date<input name="start_date" type="date" required></label>
+                        <label>Expected end date<input name="expected_end_date" type="date" required></label>
+                        <button class="button button-secondary span-2" type="submit">Add probation record</button>
+                    </form>
+                    <div id="probation-list" class="record-list empty-state">No probation records loaded.</div>
+                </article>
+                <article class="panel section-panel">
+                    <div class="section-title"><div><p class="eyebrow">DOCUMENT ARCHIVE</p><h2>Scanned service book</h2></div></div>
+                    <form id="document-form" class="form-grid" enctype="multipart/form-data">
+                        <label class="span-2">Document title<input name="title" maxlength="255" required></label>
+                        <label>Document date<input name="document_date" type="date"></label>
+                        <label>Scanned file<input name="file" type="file" required></label>
+                        <button class="button button-secondary span-2" type="submit">Upload document</button>
+                    </form>
+                    <div id="document-list" class="record-list empty-state">No scanned documents loaded.</div>
+                </article>
+                <article class="panel section-panel">
+                    <div class="section-title"><div><p class="eyebrow">CONFIDENTIAL</p><h2>ACR records</h2></div></div>
+                    <form id="acr-form" class="form-grid">
+                        <label>Period start<input name="period_start" type="date" required></label>
+                        <label>Period end<input name="period_end" type="date" required></label>
+                        <label>Rating<input name="rating" maxlength="40" placeholder="Enter rating" required></label>
+                        <label>Notes<input name="details" maxlength="500" placeholder="Optional notes"></label>
+                        <button class="button button-secondary span-2" type="submit">Add ACR record</button>
+                    </form>
+                    <div id="acr-list" class="record-list empty-state">No ACR records loaded.</div>
+                </article>
+            </section>
+
+            <section class="panel section-panel" id="catalogs">
+                <div class="section-title"><div><p class="eyebrow">REFERENCE DATA</p><h2>Designations & pay scales</h2><p class="section-caption">Manage the catalog values used by appointment and pay events. Catalog entries remain available for service history.</p></div></div>
+                <div class="two-column catalog-management">
+                    <form id="designation-form" class="form-grid">
+                        <label>Designation code<input name="code" maxlength="50" required></label>
+                        <label>Designation name<input name="name" maxlength="255" required></label>
+                        <label>Level<input name="level" type="number" min="0" step="1" value="0" required></label>
+                        <label>Description<input name="description" maxlength="500"></label>
+                        <button class="button button-secondary span-2" type="submit">Add designation</button>
+                    </form>
+                    <form id="pay-scale-form" class="form-grid">
+                        <label>Pay scale code<input name="code" maxlength="50" required></label>
+                        <label>Revision order<input name="revision_order" type="number" min="0" step="1" required></label>
+                        <label>Minimum pay<input name="min_pay" type="number" min="0" step="0.01" required></label>
+                        <label>Maximum pay<input name="max_pay" type="number" min="0" step="0.01" required></label>
+                        <label>Effective date<input name="effective_date" type="date" required></label>
+                        <label>Increment steps<input name="increment_steps" placeholder="e.g. 500, 750" required></label>
+                        <button class="button button-secondary span-2" type="submit">Add pay scale</button>
+                    </form>
+                </div>
+                <div class="two-column catalog-lists">
+                    <div><h3 class="list-heading">Designation catalog</h3><div id="designation-list" class="record-list empty-state">No designations found.</div></div>
+                    <div><h3 class="list-heading">Pay scale catalog</h3><div id="pay-scale-list" class="record-list empty-state">No pay scales found.</div></div>
+                </div>
+            </section>
+
+            <section class="panel section-panel" id="event-entry">
+                <div class="section-title"><div><p class="eyebrow">NEW RECORD</p><h2>Record a service event</h2><p class="section-caption">Create a draft. Submit it when the details are complete.</p></div></div>
+                <form id="event-form" class="form-grid event-form">
+                    <label>Event type
+                        <select name="event_type" required>
+                            <option value="">Select event type</option>
+                            <option value="APPOINTMENT">Appointment</option>
+                            <option value="PROMOTION">Promotion</option>
+                            <option value="DESIGNATION_CHANGE">Designation change</option>
+                            <option value="INCREMENT">Salary increment</option>
+                            <option value="PAY_REVISION">Pay revision</option>
+                            <option value="TRANSFER">Transfer</option>
+                            <option value="PROBATION_CONFIRMED">Probation confirmation</option>
+                            <option value="PROBATION_EXTENDED">Probation extension</option>
+                            <option value="LEAVE">Leave</option>
+                            <option value="SUSPENSION">Suspension</option>
+                            <option value="REINSTATEMENT">Reinstatement</option>
+                            <option value="TERMINATION">Termination</option>
+                        </select>
+                    </label>
+                    <label>Effective date<input name="effective_date" type="date" required></label>
+                    <div id="event-payload" class="form-grid span-2"></div>
+                    <button class="button button-primary span-2" type="submit">Save as draft</button>
+                </form>
+            </section>
+
+            <section class="panel section-panel audit-panel">
+                <div class="section-title"><div><p class="eyebrow">ACCOUNTABILITY</p><h2>Recent audit activity</h2></div></div>
+                <div id="audit-list" class="record-list empty-state">Select an employee to load audit history.</div>
+            </section>
+
+            <footer class="footer">CEMS · Employee Service Book Management · Records are served from the configured database.</footer>
+        </div>
+    </main>
+
+    <dialog id="profile-dialog" class="profile-dialog">
+        <form id="profile-form" class="form-grid">
+            <div class="dialog-heading span-2"><div><p class="eyebrow">EMPLOYEE PROFILE</p><h2 id="profile-dialog-title">Add employee</h2></div><button class="icon-button" type="button" data-close-dialog aria-label="Close">×</button></div>
+            <label>Employee CEN<input name="employee_cen" maxlength="64" required></label>
+            <label>Full name<input name="full_name" maxlength="255" required></label>
+            <label>Date of birth<input name="date_of_birth" type="date"></label>
+            <label>Department<input name="department" maxlength="255"></label>
+            <label>Email<input name="email" type="email" maxlength="254"></label>
+            <label>Phone<input name="phone" maxlength="40"></label>
+            <div class="dialog-actions span-2"><button class="button button-secondary" type="button" data-close-dialog>Cancel</button><button class="button button-primary" type="submit">Save employee</button></div>
+        </form>
+    </dialog>
+
+    <form hidden>{% csrf_token %}</form>
+</body>
+</html>
