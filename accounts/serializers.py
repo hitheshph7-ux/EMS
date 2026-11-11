@@ -1,4 +1,6 @@
+
 from django.contrib.auth import get_user_model
+
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings
@@ -9,14 +11,8 @@ User = get_user_model()
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(
-        required=False,
-        allow_blank=True
-    )
-    mobile_number = serializers.CharField(
-        required=False,
-        allow_blank=True
-    )
+    username = serializers.CharField(required=False, allow_blank=True)
+    mobile_number = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(
         write_only=True,
         trim_whitespace=False,
@@ -52,11 +48,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-class SecureTokenRefreshSerializer(TokenRefreshSerializer):
 
+class SecureTokenRefreshSerializer(TokenRefreshSerializer):
     def validate(self, attrs):
         refresh = RefreshToken(attrs["refresh"])
-
         user_id = refresh.get(api_settings.USER_ID_CLAIM)
 
         try:
@@ -84,3 +79,18 @@ class SecureTokenRefreshSerializer(TokenRefreshSerializer):
             )
 
         return super().validate(attrs)
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(write_only=True)
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+    )
+    new_password = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+    )

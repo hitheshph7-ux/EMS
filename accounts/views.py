@@ -1,5 +1,7 @@
 
 from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -8,10 +10,14 @@ from rest_framework.views import APIView
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
 from .serializers import (
     LoginSerializer,
     UserProfileSerializer,
     SecureTokenRefreshSerializer,
+    LogoutSerializer,
+    PasswordChangeSerializer,
 )
 
 from .permissions import (
@@ -21,11 +27,17 @@ from .permissions import (
 
 
 class CurrentUserView(APIView):
+    serializer_class = UserProfileSerializer
+
     permission_classes = [
         IsAuthenticated,
         PasswordChangeRequiredPermission,
     ]
 
+    @extend_schema(
+        operation_id="current_user",
+        responses={200: UserProfileSerializer},
+    )
     def get(self, request):
         serializer = UserProfileSerializer(request.user)
 
@@ -36,8 +48,19 @@ class CurrentUserView(APIView):
 
 
 class LoginView(APIView):
+    serializer_class = LoginSerializer
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        operation_id="auth_login",
+        request=LoginSerializer,
+        responses={
+            200: OpenApiResponse(description="Login successful or password change required."),
+            400: OpenApiResponse(description="Invalid login request."),
+            401: OpenApiResponse(description="Invalid username or password."),
+            403: OpenApiResponse(description="Account is locked or inactive."),
+        },
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -48,7 +71,6 @@ class LoginView(APIView):
 
         User = get_user_model()
 
-        # Find account using username or mobile number.
         if mobile_number:
             account = User.objects.filter(
                 mobile_number=mobile_number
@@ -64,7 +86,6 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Check whether the account is locked.
         if account.is_locked:
             return Response(
                 {
@@ -73,14 +94,12 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Authenticate the user.
         user = authenticate(
             request,
             username=account.username,
             password=password,
         )
 
-        # Handle incorrect password.
         if user is None:
             account.failed_login_attempts += 1
 
@@ -110,19 +129,16 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Check account status.
         if not user.is_active:
             return Response(
                 {"detail": "This account is inactive."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Reset failed attempts after successful authentication.
         if user.failed_login_attempts > 0:
             user.failed_login_attempts = 0
             user.save(update_fields=["failed_login_attempts"])
 
-        # Require password change on first login.
         if user.must_change_password:
             refresh = RefreshToken.for_user(user)
 
@@ -138,7 +154,6 @@ class LoginView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # Generate normal JWT tokens.
         refresh = RefreshToken.for_user(user)
 
         return Response(
@@ -152,9 +167,19 @@ class LoginView(APIView):
 
 
 class RefreshTokenView(APIView):
+    serializer_class = SecureTokenRefreshSerializer
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @extend_schema(
+        operation_id="auth_refresh",
+        request=SecureTokenRefreshSerializer,
+        responses={
+            200: OpenApiResponse(description="New access token generated."),
+            401: OpenApiResponse(description="Invalid, expired, or blacklisted refresh token."),
+        },
+    )
     def post(self, request):
         serializer = SecureTokenRefreshSerializer(data=request.data)
 
@@ -176,9 +201,19 @@ class RefreshTokenView(APIView):
 
 
 class LogoutView(APIView):
+    serializer_class = LogoutSerializer
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    @extend_schema(
+        operation_id="auth_logout",
+        request=LogoutSerializer,
+        responses={
+            200: OpenApiResponse(description="Successfully logged out."),
+            400: OpenApiResponse(description="Missing, invalid, or expired refresh token."),
+        },
+    )
     def post(self, request):
         refresh_token = request.data.get("refresh")
 
@@ -205,11 +240,21 @@ class LogoutView(APIView):
 
 
 class PasswordChangeView(APIView):
+    serializer_class = PasswordChangeSerializer
+
     permission_classes = [
         IsAuthenticated,
         PasswordChangeAccessPermission,
     ]
 
+    @extend_schema(
+        operation_id="auth_password_change",
+        request=PasswordChangeSerializer,
+        responses={
+            200: OpenApiResponse(description="Password changed successfully."),
+            400: OpenApiResponse(description="Password validation failed."),
+        },
+    )
     def post(self, request):
         current_password = request.data.get("current_password")
         new_password = request.data.get("new_password")
@@ -227,6 +272,14 @@ class PasswordChangeView(APIView):
         if not user.check_password(current_password):
             return Response(
                 {"detail": "Current password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as error:
+            return Response(
+                {"detail": error.messages},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
