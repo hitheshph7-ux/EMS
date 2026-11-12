@@ -1,0 +1,544 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Employee Details - {{ employee.full_name }}</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 25px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .section {
+            background: white;
+            padding: 22px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .section h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 12px;
+            font-size: 20px;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 15px;
+        }
+
+        .detail-item {
+            padding: 8px 0;
+        }
+
+        .detail-item strong {
+            display: block;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 10px 16px;
+            background: #1769aa;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .button:hover {
+            background: #10558d;
+        }
+
+        .back-button {
+            background: #555;
+        }
+
+        .address-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+
+        .address-card h3 {
+            margin-top: 0;
+            color: #1769aa;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f1f3f5;
+        }
+
+        .empty-message {
+            color: #777;
+            padding: 10px 0;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: #e8f1fb;
+        }
+
+        @media (max-width: 650px) {
+            body {
+                padding: 12px;
+            }
+
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 15px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- PAGE HEADER -->
+
+    <div class="header">
+
+        <div>
+            <h1>Employee Profile</h1>
+            <p>{{ employee.cen }} - {{ employee.full_name }}</p>
+        </div>
+
+        <a href="{% url 'EMS:employee_list' %}"
+           class="button back-button">
+            Back to Employee List
+        </a>
+
+    </div>
+
+
+    <!-- 1. PERSONAL INFORMATION -->
+
+    <div class="section">
+
+        <h2>Personal Information</h2>
+
+        <div class="details-grid">
+
+            <div class="detail-item">
+                <strong>CEN</strong>
+                {{ employee.cen|default:"Not assigned" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Full Name</strong>
+                {{ employee.full_name }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Society</strong>
+                {{ employee.society|default:"Not provided" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Date of Birth</strong>
+                {{ employee.date_of_birth|date:"d-m-Y" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Gender</strong>
+                {{ employee.get_gender_display }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Mobile</strong>
+                {{ employee.mobile }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Email</strong>
+                {{ employee.email|default:"Not provided" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Community</strong>
+                {{ employee.community|default:"Not provided" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Marital Status</strong>
+                {{ employee.get_marital_status_display|default:"Not provided" }}
+            </div>
+
+            <div class="detail-item">
+                <strong>Employee Status</strong>
+                <span class="status">
+                    {{ employee.get_status_display }}
+                </span>
+            </div>
+
+            <div class="detail-item">
+                <strong>Aadhaar</strong>
+                {{ masked_aadhaar }}
+            </div>
+
+            <div class="detail-item">
+                <strong>PAN</strong>
+                {{ masked_pan }}
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- 2. ADDRESS INFORMATION -->
+
+    <div class="section">
+
+        <h2>Address Information</h2>
+
+        <a href="{% url 'EMS:employee_address_add' employee.id %}"
+           class="button">
+            + Add Address
+        </a>
+
+        <br><br>
+
+        {% for address in addresses %}
+
+            <div class="address-card">
+
+                <h3>{{ address.get_address_type_display }} Address</h3>
+
+                <p>
+                    {{ address.address_line1 }}
+                </p>
+
+                {% if address.address_line2 %}
+                    <p>{{ address.address_line2 }}</p>
+                {% endif %}
+
+                <p>
+                    {{ address.city }},
+                    {{ address.district }},
+                    {{ address.state }} -
+                    {{ address.postal_code }}
+                </p>
+
+                <p>
+                    {{ address.country }}
+                </p>
+
+            </div>
+
+        {% empty %}
+
+            <p class="empty-message">
+                No address information available.
+            </p>
+
+        {% endfor %}
+
+    </div>
+
+
+    <!-- 3. QUALIFICATION INFORMATION -->
+
+    <div class="section">
+
+        <h2>Qualification Information</h2>
+
+        {% if qualifications %}
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Qualification</th>
+                        <th>Institution</th>
+                        <th>Year Completed</th>
+                        <th>Grade / Percentage</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for qualification in qualifications %}
+
+                        <tr>
+                            <td>
+                                {{ qualification.get_qualification_type_display }}
+                            </td>
+
+                            <td>
+                                {{ qualification.qualification_name }}
+                            </td>
+
+                            <td>
+                                {{ qualification.institution|default:"-" }}
+                            </td>
+
+                            <td>
+                                {{ qualification.year_completed|default:"-" }}
+                            </td>
+
+                            <td>
+                                {{ qualification.grade_or_percentage|default:"-" }}
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <p class="empty-message">
+                No qualification information available.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- 4. FAMILY INFORMATION -->
+
+    <div class="section">
+
+        <h2>Family Information</h2>
+
+        {% if family_members %}
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Relation</th>
+                        <th>Date of Birth</th>
+                        <th>Dependent</th>
+                        <th>Nominee</th>
+                        <th>Nominee Share</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for member in family_members %}
+
+                        <tr>
+                            <td>{{ member.name }}</td>
+
+                            <td>{{ member.relation }}</td>
+
+                            <td>
+                                {{ member.date_of_birth|date:"d-m-Y"|default:"-" }}
+                            </td>
+
+                            <td>
+                                {{ member.is_dependent|yesno:"Yes,No" }}
+                            </td>
+
+                            <td>
+                                {{ member.is_nominee|yesno:"Yes,No" }}
+                            </td>
+
+                            <td>{{ member.nominee_share }}%</td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <p class="empty-message">
+                No family information available.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- 5. BANK ACCOUNT INFORMATION -->
+
+    <div class="section">
+
+        <h2>Bank Account Information</h2>
+
+        {% if bank_accounts %}
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Account Holder</th>
+                        <th>IFSC</th>
+                        <th>Account Number</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for account in bank_accounts %}
+
+                        <tr>
+                            <td>
+                                {{ account.account_holder_name|default:"-" }}
+                            </td>
+
+                            <td>{{ account.ifsc }}</td>
+
+                            <td>
+                                {{ account.masked_account_number }}
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <p class="empty-message">
+                No bank account information available.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- 6. EMPLOYEE DOCUMENTS -->
+
+    <div class="section">
+
+        <h2>Employee Documents</h2>
+
+        {% if documents %}
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Document Type</th>
+                        <th>Uploaded Date</th>
+                        <th>Verification Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for document in documents %}
+
+                        <tr>
+                            <td>{{ document.document_type }}</td>
+
+                            <td>
+                                {{ document.uploaded_at|date:"d-m-Y H:i" }}
+                            </td>
+
+                            <td>
+                                {% if document.is_verified %}
+                                    Verified
+                                {% else %}
+                                    Pending Verification
+                                {% endif %}
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <p class="empty-message">
+                No employee documents available.
+            </p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- PAGE FOOTER -->
+
+    <div style="text-align:center; margin:25px 0;">
+        <a href="{% url 'EMS:employee_list' %}"
+           class="button back-button">
+            Back to Employee List
+        </a>
+    </div>
+
+</div>
+
+</body>
+</html>

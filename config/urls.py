@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, include, path
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -11,7 +11,7 @@ from accounts.views import CurrentUserView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-
+    path("", include("EMS.urls")),
     # Authentication APIs
     path("api/auth/", include("accounts.urls")),
 
@@ -29,3 +29,4 @@ urlpatterns = [
         name="swagger-ui",
     ),
 ]
+
