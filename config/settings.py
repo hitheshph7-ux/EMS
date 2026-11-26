@@ -35,7 +35,6 @@ INSTALLED_APPS = [
 
     'accounts',
     'societies',
-    'rest_framework',
     'EMS',
     'rest_framework',
     'rest_framework_simplejwt',
