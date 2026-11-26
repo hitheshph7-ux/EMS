@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Employee Management System</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 25px;
+        }
+
+        h1 {
+            color: #245b78;
+            margin-bottom: 18px;
+        }
+
+        .add-button {
+            display: inline-block;
+            background: #245b78;
+            color: white;
+            padding: 10px 15px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 18px;
+        }
+
+        .add-button:hover {
+            background: #17435d;
+        }
+
+        .search-container {
+            background: white;
+            padding: 18px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            min-width: 180px;
+        }
+
+        button {
+            background: #245b78;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #17435d;
+        }
+
+        .clear-button {
+            background: #777;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 4px;
+            text-decoration: none;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            background: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th {
+            background: #245b78;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+
+        td {
+            padding: 12px;
+            border: 1px solid #ddd;
+        }
+
+        tr:nth-child(even) {
+            background: #f0f2f4;
+        }
+
+        tr:hover {
+            background: #e5edf2;
+        }
+
+        .count {
+            margin-bottom: 12px;
+            color: #444;
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+        }
+
+        .view-button {
+            display: inline-block;
+            background: #198754;
+            color: white;
+            padding: 7px 13px;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        .view-button:hover {
+            background: #146c43;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 12px;
+            }
+
+            .search-container {
+                flex-direction: column;
+            }
+
+            input, select, button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Employee Management System</h1>
+
+    <!-- ADD EMPLOYEE BUTTON -->
+    <a href="/admin/EMS/employee/add/" class="add-button">
+        + Add Employee
+    </a>
+
+    <!-- SEARCH AND STATUS FILTER -->
+    <form method="GET" action="" class="search-container">
+
+        <input
+            type="text"
+            name="search"
+            placeholder="Search CEN, Name or Mobile"
+            value="{{ search_query }}"
+        >
+
+        <select name="status">
+            <option value="">All Employee Statuses</option>
+
+            {% for value, label in status_choices %}
+                <option
+                    value="{{ value }}"
+                    {% if status_filter == value %}selected{% endif %}
+                >
+                    {{ label }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Search / Filter</button>
+
+        <a href="/" class="clear-button">Clear</a>
+
+    </form>
+
+    <!-- EMPLOYEE COUNT -->
+    <div class="count">
+        Total Employees:
+        <strong>{{ employees|length }}</strong>
+    </div>
+
+    <!-- EMPLOYEE TABLE -->
+    <div class="table-container">
+
+        <table>
+            <thead>
+                <tr>
+                    <th>CEN</th>
+                    <th>Full Name</th>
+                    <th>Society</th>
+                    <th>Date of Birth</th>
+                    <th>Gender</th>
+                    <th>Mobile</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for employee in employees %}
+                    <tr>
+
+                        <td>
+                            {{ employee.cen|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ employee.full_name }}
+                        </td>
+
+                        <td>
+                            {{ employee.society|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ employee.date_of_birth|date:"M. d, Y"|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ employee.get_gender_display|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ employee.mobile }}
+                        </td>
+
+                        <td>
+                            {{ employee.get_status_display }}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'EMS:employee_detail' employee.id %}"
+                                class="view-button"
+                            >
+                                View
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% empty %}
+                    <tr>
+                        <td colspan="8" class="empty-message">
+                            No employees found.
+                        </td>
+                    </tr>
+                {% endfor %}
+
+            </tbody>
+        </table>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,99 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f4f6f9;
+            color: #222;
+        }
+
+        h1 {
+            color: #245a75;
+        }
+
+        .add-button {
+            display: inline-block;
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            background: #245a75;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        th, td {
+            padding: 12px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #245a75;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f0f3f5;
+        }
+
+        .empty {
+            padding: 20px;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Employee Management System</h1>
+
+    <a class="add-button" href="/admin/EMS/employee/add/">
+        + Add Employee
+    </a>
+
+    <table>
+        <thead>
+            <tr>
+                <th>CEN</th>
+                <th>Full Name</th>
+                <th>Society</th>
+                <th>Date of Birth</th>
+                <th>Gender</th>
+                <th>Mobile</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+            <tr>
+                <td>{{ employee.cen }}</td>
+                <td>{{ employee.full_name }}</td>
+                <td>{{ employee.society|default:"-" }}</td>
+                <td>{{ employee.date_of_birth|default:"-" }}</td>
+                <td>{{ employee.gender }}</td>
+                <td>{{ employee.mobile }}</td>
+                <td>{{ employee.status }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="empty">
+                    No employees found. Click Add Employee to create one.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>
