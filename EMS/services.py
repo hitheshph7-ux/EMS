@@ -92,6 +92,7 @@ def _empty_state(cen, as_of):
         "designation_name": "",
         "designation_description": "",
         "designation_level": None,
+        "has_appointment": False,
         "pay_scale_id": None,
         "pay_scale_code": "",
         "pay_scale_min_pay": None,
@@ -132,6 +133,7 @@ def _apply_event(state, event):
             state["society_cen"] = data.get("society_cen", "")
             state["employment_status"] = "ACTIVE"
             state["probation_status"] = "PROBATION"
+            state["has_appointment"] = True
     elif kind == "INCREMENT":
         state["pay_scale_id"] = data["pay_scale_id"]
         state["pay_scale_code"] = data.get("pay_scale_code_snapshot", "")
@@ -199,16 +201,18 @@ def _check_business_rules(event):
         if not scale.is_active:
             raise ValidationError({"pay_scale_id": "Inactive pay scales cannot be used for new service events."})
     if kind == "APPOINTMENT":
-        if state["designation_id"] is not None:
+        if state["has_appointment"]:
             raise ValidationError("An employee with an existing appointment cannot be appointed again.")
-        designation = Designation.objects.get(pk=data["designation_id"])
+        designation_id = data.get("designation_id")
+        if designation_id is not None:
+            designation = Designation.objects.get(pk=designation_id)
+            if not designation.is_active:
+                raise ValidationError({"designation_id": "Inactive designations cannot be used for new appointments."})
         scale = PayScale.objects.get(pk=data["pay_scale_id"])
-        if not designation.is_active:
-            raise ValidationError({"designation_id": "Inactive designations cannot be used for new appointments."})
         if not scale.effective_date <= event.effective_date:
             raise ValidationError({"pay_scale_id": "Pay scale is not effective on the appointment date."})
     elif kind in ("PROMOTION", "DESIGNATION_CHANGE"):
-        if state["designation_id"] is None:
+        if not state["has_appointment"]:
             raise ValidationError("Designation changes require a prior approved appointment.")
         if state["employment_status"] != "ACTIVE":
             raise ValidationError("Designation changes require an active employee.")
@@ -241,7 +245,7 @@ def _check_business_rules(event):
         if expected > scale.max_pay:
             raise ValidationError({"new_pay": "Increment would exceed the pay-scale maximum."})
     elif kind == "PAY_REVISION":
-        if state["designation_id"] is None:
+        if not state["has_appointment"]:
             raise ValidationError("A pay revision requires a prior approved appointment.")
         if state["employment_status"] != "ACTIVE":
             raise ValidationError("A pay revision requires an active employee.")
@@ -279,17 +283,17 @@ def _check_business_rules(event):
         if new_end <= event.effective_date:
             raise ValidationError({"new_end_date": "Extended probation must end after the event date."})
     elif kind == "SUSPENSION" and (
-        state["designation_id"] is None or state["employment_status"] != "ACTIVE"
+        not state["has_appointment"] or state["employment_status"] != "ACTIVE"
     ):
         raise ValidationError("Only an appointed active employee can be suspended.")
     elif kind == "REINSTATEMENT" and state["employment_status"] != "SUSPENDED":
         raise ValidationError("Reinstatement requires a prior suspension.")
     elif kind == "TERMINATION" and (
-        state["designation_id"] is None or state["employment_status"] != "ACTIVE"
+        not state["has_appointment"] or state["employment_status"] != "ACTIVE"
     ):
         raise ValidationError("Only an appointed active employee can be terminated.")
     elif kind == "LEAVE" and (
-        state["designation_id"] is None or state["employment_status"] != "ACTIVE"
+        not state["has_appointment"] or state["employment_status"] != "ACTIVE"
     ):
         raise ValidationError("Leave requires an appointed active employee.")
     return state

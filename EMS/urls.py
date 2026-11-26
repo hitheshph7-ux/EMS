@@ -5,6 +5,7 @@ from EMS.api import (
     ACRRecordViewSet,
     AuditEntryViewSet,
     DesignationViewSet,
+    EmployeeRecordsView,
     EmployeeServiceProfileViewSet,
     PayScaleViewSet,
     ProbationRecordViewSet,
@@ -30,6 +31,7 @@ router.register("acr-records", ACRRecordViewSet, basename="acr-record")
 router.register("audit-history", AuditEntryViewSet, basename="audit-history")
 
 urlpatterns = [
+    path("employee-records/", EmployeeRecordsView.as_view(), name="employee-records"),
     path("", include(router.urls)),
     path("service-state/", ServiceStateView.as_view(), name="service-state"),
 ]

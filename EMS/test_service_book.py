@@ -97,6 +97,37 @@ class ServiceBookDomainTests(TestCase):
         self.assertEqual(snapshot.current_pay, Decimal("25000.00"))
         self.assertEqual(snapshot.society_cen, "S-1")
 
+    def test_appointment_can_be_approved_without_a_designation(self):
+        appointment = self.create_event(
+            "APPOINTMENT",
+            date(2020, 1, 1),
+            {
+                "pay_scale_id": self.scale.pk,
+                "pay_amount": "25000",
+                "society_cen": "S-1",
+            },
+        )
+        submit_event(appointment, actor=self.admin)
+        approve_event(appointment, actor=self.admin)
+
+        state = state_as_of("E-100", date(2020, 1, 1))
+        self.assertTrue(state["has_appointment"])
+        self.assertIsNone(state["designation_id"])
+        self.assertEqual(state["society_cen"], "S-1")
+
+        duplicate = self.create_event(
+            "APPOINTMENT",
+            date(2020, 1, 2),
+            {
+                "pay_scale_id": self.scale.pk,
+                "pay_amount": "25000",
+                "society_cen": "S-1",
+            },
+        )
+        submit_event(duplicate, actor=self.admin)
+        with self.assertRaises(ValidationError):
+            approve_event(duplicate, actor=self.admin)
+
     def test_historical_state_uses_event_history_not_latest_snapshot(self):
         self.appoint()
         promotion = self.create_event(
@@ -387,6 +418,40 @@ class ServiceBookAPITests(APITestCase):
         )
         self.assertEqual(create.status_code, 201, create.data)
         self.assertEqual(self.client.delete(f"{url}{create.data['id']}/").status_code, 405)
+
+    def test_api_accepts_appointment_without_designation(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            reverse("service-event-list"),
+            {
+                "employee_cen": "E-OPTIONAL-DESIGNATION",
+                "event_type": "APPOINTMENT",
+                "effective_date": "2020-01-01",
+                "payload": {
+                    "pay_scale_id": self.scale.pk,
+                    "pay_amount": "25000",
+                    "society_cen": "S-API",
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_employee_records_api_returns_all_page_data_in_one_request(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(
+            reverse("employee-records"),
+            {"employee_cen": "E-BUNDLE", "date": "2020-01-01"},
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(
+            set(response.data),
+            {"events", "workflows", "probations", "recruitments", "documents", "acr_records", "audits", "state"},
+        )
+        self.assertEqual(response.data["events"], [])
+        self.assertEqual(response.data["state"]["employee_cen"], "E-BUNDLE")
 
     def test_employee_profile_api_is_staff_only_and_persists_real_details(self):
         url = reverse("employee-profile-list")

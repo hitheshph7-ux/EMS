@@ -45,7 +45,7 @@ def validate_service_event(event):
 
     data = event.payload
     if event.event_type == "APPOINTMENT":
-        _catalog(data, "designation_id", Designation, "Designation")
+        _catalog(data, "designation_id", Designation, "Designation", required=False)
         scale = _catalog(data, "pay_scale_id", PayScale, "Pay scale")
         _decimal(data.get("pay_amount"), "pay_amount")
         society_cen = data.get("society_cen", "")

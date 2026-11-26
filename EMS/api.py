@@ -195,22 +195,74 @@ class ServiceStateView(APIView):
     permission_classes = (IsAdminUser,)
 
     def get(self, request):
+        return Response(service_state_from_query(request.query_params))
+
+
+def service_state_from_query(query_params):
+    cen = query_params.get("employee_cen")
+    requested_date = query_params.get("date")
+    if not cen or not requested_date:
+        raise serializers.ValidationError(
+            {"detail": "Both employee_cen and date query parameters are required."}
+        )
+    try:
+        as_of = date.fromisoformat(requested_date)
+        if as_of.isoformat() != requested_date:
+            raise ValueError
+        return ServiceBookService.state_as_of(cen, as_of)
+    except (ValueError, DjangoValidationError) as exc:
+        if isinstance(exc, DjangoValidationError):
+            raise_api_validation(exc)
+        raise serializers.ValidationError({"date": "Use YYYY-MM-DD format."})
+
+
+class EmployeeRecordsView(APIView):
+    permission_classes = (IsAdminUser,)
+
+    def get(self, request):
         cen = request.query_params.get("employee_cen")
-        requested_date = request.query_params.get("date")
-        if not cen or not requested_date:
+        if not cen:
             raise serializers.ValidationError(
-                {"detail": "Both employee_cen and date query parameters are required."}
+                {"employee_cen": "This query parameter is required."}
             )
-        try:
-            as_of = date.fromisoformat(requested_date)
-            if as_of.isoformat() != requested_date:
-                raise ValueError
-            state = ServiceBookService.state_as_of(cen, as_of)
-        except (ValueError, DjangoValidationError) as exc:
-            if isinstance(exc, DjangoValidationError):
-                raise_api_validation(exc)
-            raise serializers.ValidationError({"date": "Use YYYY-MM-DD format."})
-        return Response(state)
+        state = service_state_from_query(request.query_params)
+        return Response({
+            "events": ServiceEventSerializer(
+                ServiceEvent.objects.filter(employee_cen=cen).select_related("created_by", "approved_by"),
+                many=True,
+            ).data,
+            "workflows": TransferWorkflowSerializer(
+                TransferWorkflow.objects.filter(event__employee_cen=cen).select_related(
+                    "event", "relieved_by", "accepted_by"
+                ),
+                many=True,
+            ).data,
+            "probations": ProbationRecordSerializer(
+                ProbationRecord.objects.filter(employee_cen=cen).select_related(
+                    "confirmation_event", "created_by"
+                ),
+                many=True,
+            ).data,
+            "recruitments": RecruitmentRecordSerializer(
+                RecruitmentRecord.objects.filter(employee_cen=cen).select_related(
+                    "appointment_event", "created_by"
+                ),
+                many=True,
+            ).data,
+            "documents": ScannedServiceBookSerializer(
+                ScannedServiceBook.objects.filter(employee_cen=cen).select_related("uploaded_by"),
+                many=True,
+            ).data,
+            "acr_records": ACRRecordSerializer(
+                ACRRecord.objects.filter(employee_cen=cen).select_related("created_by"),
+                many=True,
+            ).data,
+            "audits": AuditEntrySerializer(
+                AuditEntry.objects.filter(employee_cen=cen).select_related("actor"),
+                many=True,
+            ).data,
+            "state": state,
+        })
 
 
 class ProbationRecordViewSet(Module3ViewSet):

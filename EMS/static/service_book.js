@@ -317,7 +317,10 @@
 
     function payloadSelect(name, label, rows, required = true) {
         const options = rows.map((row) => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.code)} · ${escapeHtml(row.name || `${money(row.min_pay)}–${money(row.max_pay)}`)}</option>`).join("");
-        return `<label>${escapeHtml(label)}<select name="${escapeHtml(name)}" ${required ? "required" : ""}><option value="">Select ${escapeHtml(label.toLowerCase())}</option>${options}</select></label>`;
+        const placeholder = rows.length
+            ? `Select ${label.toLowerCase()}`
+            : `No active ${label.replace(/ \(optional\)$/i, "").toLowerCase()} options — add one in the catalog`;
+        return `<label>${escapeHtml(label)}<select name="${escapeHtml(name)}" ${required ? "required" : ""}><option value="">${escapeHtml(placeholder)}</option>${options}</select></label>`;
     }
 
     function renderEventPayload(type) {
@@ -326,7 +329,8 @@
         const designation = payloadSelect("designation_id", "Designation", store.designations.filter((item) => item.is_active));
         let fields = "";
         if (type === "APPOINTMENT") {
-            fields = designation + commonScale + payloadField("pay_amount", "Starting pay", "number", true, 'min="0" step="0.01"')
+            fields = payloadSelect("designation_id", "Designation (optional)", store.designations.filter((item) => item.is_active), false)
+                + commonScale + payloadField("pay_amount", "Starting pay", "number", true, 'min="0" step="0.01"')
                 + payloadField("society_cen", "Initial society CEN");
         } else if (type === "PROMOTION" || type === "DESIGNATION_CHANGE") {
             fields = designation + payloadSelect("pay_scale_id", "Pay scale (optional)", store.payScales.filter((item) => item.is_active), false)
@@ -402,24 +406,15 @@
         const query = encodeURIComponent(cen);
         const today = new Date().toISOString().slice(0, 10);
         element("history-date").value = today;
-        const [events, workflows, probations, recruitments, documents, acrRecords, audits, state] = await Promise.all([
-            request(`service-events/?employee_cen=${query}`),
-            request(`transfers/?employee_cen=${query}`),
-            request(`probation-records/?employee_cen=${query}`),
-            request(`recruitment-records/?employee_cen=${query}`),
-            request(`scanned-service-books/?employee_cen=${query}`),
-            request(`acr-records/?employee_cen=${query}`),
-            request(`audit-history/?employee_cen=${query}`),
-            request(`service-state/?employee_cen=${query}&date=${today}`),
-        ]);
-        store.events = events;
-        store.workflows = workflows;
-        store.probations = probations;
-        store.recruitments = recruitments;
-        store.documents = documents;
-        store.acrRecords = acrRecords;
-        store.audits = audits;
-        renderState(state);
+        const records = await request(`employee-records/?employee_cen=${query}&date=${today}`);
+        store.events = records.events;
+        store.workflows = records.workflows;
+        store.probations = records.probations;
+        store.recruitments = records.recruitments;
+        store.documents = records.documents;
+        store.acrRecords = records.acr_records;
+        store.audits = records.audits;
+        renderState(records.state);
         renderEvents();
         renderRecords();
         showNotice(`Loaded service-book records for ${store.profile?.full_name || cen}.`, "info");

@@ -71,6 +71,7 @@ event details and their captured designation/pay-scale labels are immutable.
 | GET | `/api/service-events/{id}/signature/` | Read the approval signature |
 | GET | `/api/service-snapshots/` | Read rebuilt employee snapshots |
 | GET | `/api/service-state/?employee_cen={cen}&date=YYYY-MM-DD` | Reconstruct employee state from approved event history |
+| GET | `/api/employee-records/?employee_cen={cen}&date=YYYY-MM-DD` | Load all service-book records and current state in one request |
 | GET, POST | `/api/probation-records/` | Read or create probation records |
 | GET | `/api/transfers/` | Read transfer workflows |
 | POST | `/api/transfers/{id}/relieve/` | Record relieving-society acceptance |
@@ -84,7 +85,8 @@ event details and their captured designation/pay-scale labels are immutable.
 
 Event payloads are JSON objects and are validated by event type:
 
-* `APPOINTMENT`: `designation_id`, `pay_scale_id`, `pay_amount`, `society_cen`.
+* `APPOINTMENT`: optional `designation_id`; required `pay_scale_id`,
+  `pay_amount`, and `society_cen`.
 * `PROMOTION` / `DESIGNATION_CHANGE`: `designation_id`; optional `pay_scale_id`
   and `pay_amount`. Promotion must increase the designation's `level`.
 * `INCREMENT`: `pay_scale_id`, `increment_amount`, and `new_pay`. The amount
@@ -101,7 +103,9 @@ Event payloads are JSON objects and are validated by event type:
 Approval captures designation and pay-scale codes/names in event history,
 creates a dummy SHA-256 signature, records audit history, and rebuilds the
 snapshot from approved, non-cancelled events. Historical state queries replay
-the approved event history and do not read the latest snapshot. Cancelling an
+the approved event history and do not read the latest snapshot. Their
+`has_appointment` value is true after an approved appointment, even when that
+appointment has no designation. Cancelling an
 approved event records the cancellation; it does not delete the event, and
 historical queries before its cancellation date continue to include it.
 

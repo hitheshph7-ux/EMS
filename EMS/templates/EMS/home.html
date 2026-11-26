@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Employee Service Book | CEMS</title>
-    <link rel="stylesheet" href="{% static 'service_book.css' %}">
-    <script defer src="{% static 'service_book.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'service_book.css' %}?v=3">
+    <script defer src="{% static 'service_book.js' %}?v=3"></script>
 </head>
 <body data-staff="{% if request.user.is_authenticated and request.user.is_staff %}true{% else %}false{% endif %}">
     <header class="topbar">
