@@ -1,3 +1,10 @@
+from django.shortcuts import render
+
+
+def home(request):
+    return render(request, "EMS/home.html")
+
+
 
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404, redirect
@@ -216,3 +223,4 @@ def employee_address_add(request, employee_id):
         "EMS/employee_address_form.html",
         context,
     )
+

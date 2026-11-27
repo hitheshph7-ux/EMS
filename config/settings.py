@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -114,6 +115,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
 
 
 # Email
